@@ -1,15 +1,20 @@
+import pickle
 from pathlib import Path
 from typing import Literal
 
-import joblib
 import pandas as pd
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "model.pkl"
 PASS_THRESHOLD = 0.5
 
-pipeline = joblib.load(MODEL_PATH)
+with open(MODEL_PATH, "rb") as model_file:
+    model_data = pickle.load(model_file)
+
+model = model_data["model"]
+encoders = model_data["encoders"]
+features = model_data["features"]
 
 router = APIRouter()
 
@@ -27,6 +32,8 @@ class PredictRequest(BaseModel):
     ]
     lunch: Literal["standard", "free/reduced"]
     test_prep: Literal["none", "completed"]
+    reading_score: int = Field(ge=0, le=100)
+    writing_score: int = Field(ge=0, le=100)
 
 
 class PredictResponse(BaseModel):
@@ -35,10 +42,22 @@ class PredictResponse(BaseModel):
     result: str
 
 
+def encode_row(payload: PredictRequest) -> pd.DataFrame:
+    row = payload.model_dump()
+    encoded = {}
+    for col in features:
+        if col in encoders:
+            encoded[col] = int(encoders[col].transform([row[col]])[0])
+        else:
+            encoded[col] = row[col]
+    return pd.DataFrame([encoded], columns=features)
+
+
 @router.post("/predict", response_model=PredictResponse)
 def predict(payload: PredictRequest):
-    frame = pd.DataFrame([payload.model_dump()])
-    probability = float(pipeline.predict_proba(frame)[0][1])
+    frame = encode_row(payload)
+    class_index = list(model.classes_).index(1)
+    probability = float(model.predict_proba(frame)[0][class_index])
     passes = probability > PASS_THRESHOLD
     return PredictResponse(
         pass_math=1 if passes else 0,
