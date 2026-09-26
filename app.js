@@ -13,6 +13,67 @@ function showView(name) {
   if (name === 'table') renderTable(1) // Reiniciar a página 1 al cambiar a tabla
 }
 
+// ─── PREDICCIÓN ──────────────────────────────────────────────────────────────
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+
+document.getElementById('predict-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const form = e.currentTarget
+  const button = document.getElementById('predict-submit')
+  const panel = document.getElementById('predict-result')
+  const payload = {
+    gender: form.gender.value,
+    ethnicity: form.ethnicity.value,
+    parental_education: form.parental_education.value,
+    lunch: form.lunch.value,
+    test_prep: form.test_prep.value,
+    reading_score: Number(form.reading_score.value),
+    writing_score: Number(form.writing_score.value),
+  }
+
+  button.disabled = true
+  panel.hidden = false
+  panel.innerHTML = '<p class="predict-status">Consultando el modelo… La API puede tardar unos segundos en responder.</p>'
+
+  try {
+    const response = await fetch(`${CONFIG.ML_API_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      const detail = data && data.detail
+      const message = Array.isArray(detail)
+        ? detail.map(item => item.msg).filter(Boolean).join(' ')
+        : 'No se pudo obtener la predicción.'
+      panel.innerHTML = `<p class="predict-error">${escapeHtml(message || 'No se pudo obtener la predicción.')}</p>`
+      return
+    }
+
+    const passed = data.result === 'aprueba'
+    const rawProbability = Number(data.probability)
+    const percentValue = rawProbability <= 1 ? rawProbability * 100 : rawProbability
+    const percent = percentValue.toFixed(1)
+    panel.innerHTML = `
+      <p class="predict-label">Resultado</p>
+      <span class="badge ${passed ? 'pass' : 'fail'}">${escapeHtml(data.result)}</span>
+      <p class="predict-probability">Probabilidad de aprobar: ${escapeHtml(percent)}%</p>
+    `
+  } catch {
+    panel.innerHTML = '<p class="predict-error">No se pudo conectar con la API. Inténtalo de nuevo en unos segundos.</p>'
+  } finally {
+    button.disabled = false
+  }
+})
+
 // ─── TOAST ───────────────────────────────────────────────────────────────────
 function showToast(msg) {
   let t = document.querySelector('.toast')
@@ -29,6 +90,11 @@ function showToast(msg) {
 // ─── GRÁFICA ─────────────────────────────────────────────────────────────────
 // Promedio de math/reading/writing agrupado por parental_education
 async function renderChart() {
+  renderParentalEducationChart()
+  renderEthnicityChart()
+}
+
+async function renderParentalEducationChart() {
   const { data, error } = await db.from('students').select('parental_education, math_score, reading_score, writing_score')
   if (error) { console.error(error); return }
 
@@ -51,9 +117,9 @@ async function renderChart() {
   const ctx = document.getElementById('myChart').getContext('2d')
 
   // Destruir chart previo si existe
-  if (window._chart) window._chart.destroy()
+  if (window._parentalChart) window._parentalChart.destroy()
 
-  window._chart = new Chart(ctx, {
+  window._parentalChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
@@ -73,6 +139,99 @@ async function renderChart() {
         {
           label: 'Escritura',
           data: labels.map(l => avg(groups[l].writing)),
+          backgroundColor: 'rgba(255,159,10,0.8)',
+          borderRadius: 8,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { 
+          labels: { 
+            color: '#1d1d1f',
+            font: { family: '-apple-system, BlinkMacSystemFont, sans-serif' }
+          } 
+        },
+      },
+      scales: {
+        x: { 
+          ticks: { color: '#86868b', font: { family: '-apple-system, BlinkMacSystemFont, sans-serif' } }, 
+          grid: { color: '#e5e5ea' } 
+        },
+        y: {
+          ticks: { color: '#86868b', font: { family: '-apple-system, BlinkMacSystemFont, sans-serif' } },
+          grid: { color: '#e5e5ea' },
+          min: 50, max: 80,
+          title: { display: true, text: 'Promedio', color: '#86868b', font: { family: '-apple-system, BlinkMacSystemFont, sans-serif' } }
+        }
+      }
+    }
+  })
+}
+
+async function renderEthnicityChart() {
+  const { data, error } = await db.from('students').select('ethnicity, math_score, reading_score, writing_score')
+  if (error) { console.error(error); return }
+
+  // Agrupar manualmente por etnia
+  const groups = {}
+  data.forEach(r => {
+    const key = r.ethnicity
+    if (!groups[key]) groups[key] = { math: [], reading: [], writing: [] }
+    groups[key].math.push(r.math_score)
+    groups[key].reading.push(r.reading_score)
+    groups[key].writing.push(r.writing_score)
+  })
+
+  const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
+
+  // Calcular promedio general para cada etnia y ordenar de menor a mayor
+  const ethnicityStats = Object.keys(groups).map(ethnicity => {
+    const mathAvg = avg(groups[ethnicity].math)
+    const readingAvg = avg(groups[ethnicity].reading)
+    const writingAvg = avg(groups[ethnicity].writing)
+    const overallAvg = (mathAvg + readingAvg + writingAvg) / 3
+    
+    return {
+      ethnicity,
+      mathAvg,
+      readingAvg,
+      writingAvg,
+      overallAvg
+    }
+  })
+
+  // Ordenar por promedio general de menor a mayor
+  ethnicityStats.sort((a, b) => a.overallAvg - b.overallAvg)
+
+  const labels = ethnicityStats.map(s => s.ethnicity.charAt(0).toUpperCase() + s.ethnicity.slice(1))
+
+  const ctx = document.getElementById('ethnicityChart').getContext('2d')
+
+  // Destruir chart previo si existe
+  if (window._ethnicityChart) window._ethnicityChart.destroy()
+
+  window._ethnicityChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Matemáticas',
+          data: ethnicityStats.map(s => s.mathAvg),
+          backgroundColor: 'rgba(0,113,227,0.8)',
+          borderRadius: 8,
+        },
+        {
+          label: 'Lectura',
+          data: ethnicityStats.map(s => s.readingAvg),
+          backgroundColor: 'rgba(52,199,89,0.8)',
+          borderRadius: 8,
+        },
+        {
+          label: 'Escritura',
+          data: ethnicityStats.map(s => s.writingAvg),
           backgroundColor: 'rgba(255,159,10,0.8)',
           borderRadius: 8,
         },

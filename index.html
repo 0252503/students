@@ -15,6 +15,7 @@
     <div class="nav-links">
       <button class="nav-btn active" onclick="showView('table')">Tabla</button>
       <button class="nav-btn" onclick="showView('chart')">Gráfica</button>
+      <button class="nav-btn" onclick="showView('predict')">Predicción</button>
     </div>
   </nav>
 
@@ -24,6 +25,11 @@
       <h2>Promedio de scores por nivel educativo del tutor</h2>
       <p class="subtitle">¿Importa el nivel de estudios de los padres en el rendimiento?</p>
       <canvas id="myChart"></canvas>
+    </div>
+    <div class="card" style="margin-top: 24px;">
+      <h2>Promedio de scores por etnia del alumno</h2>
+      <p class="subtitle">¿Cómo varía el rendimiento según el origen étnico?</p>
+      <canvas id="ethnicityChart"></canvas>
     </div>
   </div>
 
@@ -72,6 +78,78 @@
         <span class="pagination-info">Página <span id="current-page">1</span> de <span id="total-pages">10</span></span>
         <button class="pagination-btn" id="next-btn" onclick="nextPage()">Siguiente</button>
       </div>
+    </div>
+  </div>
+
+  <!-- VISTA PREDICCIÓN -->
+  <div id="view-predict" class="view">
+    <div class="card">
+      <h2>Predicción de matemáticas</h2>
+      <p class="subtitle">Estima si el alumno aprueba matemáticas a partir de su perfil y de sus puntajes de lectura y escritura.</p>
+      <form id="predict-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="predict-gender">Género</label>
+            <select id="predict-gender" name="gender" required>
+              <option value="female">Femenino</option>
+              <option value="male">Masculino</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="predict-ethnicity">Etnia</label>
+            <select id="predict-ethnicity" name="ethnicity" required>
+              <option value="group A">Grupo A</option>
+              <option value="group B">Grupo B</option>
+              <option value="group C">Grupo C</option>
+              <option value="group D">Grupo D</option>
+              <option value="group E">Grupo E</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="predict-parental-education">Estudios del tutor</label>
+            <select id="predict-parental-education" name="parental_education" required>
+              <option value="some high school">Preparatoria incompleta</option>
+              <option value="high school">Preparatoria</option>
+              <option value="some college">Universidad incompleta</option>
+              <option value="associate's degree">Técnico superior</option>
+              <option value="bachelor's degree">Licenciatura</option>
+              <option value="master's degree">Maestría</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="predict-lunch">Almuerzo</label>
+            <select id="predict-lunch" name="lunch" required>
+              <option value="standard">Estándar</option>
+              <option value="free/reduced">Gratuito o reducido</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="predict-test-prep">Preparación del examen</label>
+            <select id="predict-test-prep" name="test_prep" required>
+              <option value="none">Ninguna</option>
+              <option value="completed">Completada</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="predict-reading-score">Puntaje de lectura</label>
+            <input type="number" id="predict-reading-score" name="reading_score" min="0" max="100" step="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="predict-writing-score">Puntaje de escritura</label>
+            <input type="number" id="predict-writing-score" name="writing_score" min="0" max="100" step="1" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="predict-submit">Predecir</button>
+      </form>
+
+      <div id="predict-result" class="predict-result" hidden></div>
     </div>
   </div>
 

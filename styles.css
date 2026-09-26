@@ -398,3 +398,58 @@ td[contenteditable="true"]:focus {
   color: var(--muted);
   font-weight: 500;
 }
+
+/* PREDICCIÓN */
+#predict-submit {
+  margin-top: 4px;
+}
+
+#predict-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.predict-result {
+  margin-top: 24px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.predict-result[hidden] {
+  display: none;
+}
+
+.predict-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.predict-result .badge {
+  font-size: 1rem;
+  padding: 8px 16px;
+}
+
+.predict-probability {
+  margin-top: 16px;
+  font-size: 1.05rem;
+}
+
+.predict-status {
+  color: var(--muted);
+}
+
+.predict-error {
+  color: var(--fail);
+}
+
+@media (max-width: 720px) {
+  #view-predict .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
