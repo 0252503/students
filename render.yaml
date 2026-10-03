@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: students-api
+    env: python
+    buildCommand: cd ml-api && pip install -r requirements.txt
+    startCommand: cd ml-api && uvicorn app.main:app --host 0.0.0.0 --port $PORT
